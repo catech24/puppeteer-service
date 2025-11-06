@@ -34,12 +34,24 @@ const browser = await puppeteer.launch({
       timeout: 20000
     });
 
-    const data = await page.evaluate(() => ({
-      title: document.title,
-      description:
-        document.querySelector("meta[name='description']")?.content ||
-        document.querySelector("meta[property='og:description']")?.content || ""
-    }));
+  const data = await page.evaluate(() => {
+  const getMeta = (name) =>
+    document.querySelector(`meta[name='${name}']`)?.content ||
+    document.querySelector(`meta[property='${name}']`)?.content ||
+    document.querySelector(`meta[name='twitter:${name}']`)?.content ||
+    document.querySelector(`meta[itemprop='${name}']`)?.content ||
+    "";
+  return {
+    title: document.title.trim(),
+    description:
+      getMeta("description") ||
+      getMeta("og:description") ||
+      getMeta("twitter:description") ||
+      document.querySelector("p")?.innerText?.slice(0, 160) ||
+      ""
+  };
+});
+
 
     await browser.close();
     res.json(data);
@@ -51,6 +63,7 @@ const browser = await puppeteer.launch({
 
 app.get("/", (req, res) => res.send("✅ Puppeteer Service Running"));
 app.listen(3000, () => console.log("Server running on port 3000"));
+
 
 
 
