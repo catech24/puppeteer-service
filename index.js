@@ -11,8 +11,11 @@ app.post("/scrape", async (req, res) => {
   }
 
   try {
-   const browser = await puppeteer.launch({
+const browser = await puppeteer.launch({
   headless: true,
+  executablePath:
+    process.env.PUPPETEER_EXECUTABLE_PATH ||
+    "/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome",
   args: [
     "--no-sandbox",
     "--disable-setuid-sandbox",
@@ -21,6 +24,7 @@ app.post("/scrape", async (req, res) => {
     "--single-process"
   ]
 });
+
     const page = await browser.newPage();
 
     await page.setUserAgent(
@@ -48,4 +52,5 @@ app.post("/scrape", async (req, res) => {
 
 app.get("/", (req, res) => res.send("✅ Puppeteer Service Running"));
 app.listen(3000, () => console.log("Server running on port 3000"));
+
 
