@@ -107,27 +107,31 @@ app.post("/ebay", async (req, res) => {
     await page.goto(url, { waitUntil: "networkidle0", timeout: 60000 });
 
 const data = await page.evaluate(() => {
-  // Helper to safely query meta tags
   const getMeta = (name) =>
     document.querySelector(`meta[name='${name}']`)?.content ||
     document.querySelector(`meta[property='${name}']`)?.content ||
     document.querySelector(`meta[name='twitter:${name}']`)?.content ||
     "";
 
-  // Extract sold date text (it can appear in multiple patterns)
-  const soldOn =
-    document.querySelector('.vi-tm-left')?.innerText || // Old layout
-    document.querySelector('.x-sold-date span')?.innerText || // New layout
-    document.querySelector('.x-item-date')?.innerText ||
-    document.querySelector('div:has(> span:contains("Sold"))')?.innerText || "";
+  // Find "Sold on" text manually (no :contains)
+  let soldOn = "";
+  const allSpans = Array.from(document.querySelectorAll("span, div"));
+  for (const el of allSpans) {
+    const txt = el.innerText?.trim() || "";
+    if (/sold on/i.test(txt)) {
+      soldOn = txt;
+      break;
+    }
+  }
 
-  // Extract price (sold or original)
+  // Try multiple possible price selectors
   const price =
-    document.querySelector('.x-price-approx__price')?.innerText ||
-    document.querySelector('.x-price .ux-textspans')?.innerText ||
-    document.querySelector('.x-sold-price')?.innerText ||
-    document.querySelector('#prcIsum')?.innerText ||
-    document.querySelector('.notranslate')?.innerText || "";
+    document.querySelector(".x-price-approx__price")?.innerText ||
+    document.querySelector(".x-price .ux-textspans")?.innerText ||
+    document.querySelector(".x-sold-price")?.innerText ||
+    document.querySelector("#prcIsum")?.innerText ||
+    document.querySelector(".notranslate")?.innerText ||
+    "";
 
   return {
     title: document.title.trim(),
@@ -142,6 +146,7 @@ const data = await page.evaluate(() => {
 });
 
 
+
     await browser.close();
     res.json(data);
   } catch (err) {
@@ -149,5 +154,6 @@ const data = await page.evaluate(() => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 
