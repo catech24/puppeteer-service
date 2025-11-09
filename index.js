@@ -113,19 +113,40 @@ const data = await page.evaluate(() => {
     document.querySelector(`meta[name='twitter:${name}']`)?.content ||
     "";
 
-  // SOLD DATE – very specific to eBay sold pages
   const soldOnEl = document.querySelector(
     ".ux-layout-section__textual-display--statusMessage span.ux-textspans--BOLD"
   );
-  const soldOn = soldOnEl?.innerText?.trim() || "";
+  const rawSoldOn = soldOnEl?.innerText?.trim() || "";
 
-  // PRICE – condensed card or price element
   const priceEl =
     document.querySelector(".x-item-condensed-card__price .ux-textspans--BOLD") ||
     document.querySelector(".x-price .ux-textspans--BOLD") ||
     document.querySelector(".x-price-approx__price") ||
     document.querySelector(".notranslate");
-  const price = priceEl?.innerText?.trim() || "";
+  const rawPrice = priceEl?.innerText?.trim() || "";
+
+  // --- Normalize fields ---
+  // price → numeric string
+  const priceMatch = rawPrice.match(/[\d,.]+/g);
+  const priceValue = priceMatch ? parseFloat(priceMatch[0].replace(/,/g, "")) : null;
+
+  // sold date → ISO (e.g. 2025-10-01)
+  const dateMatch = rawSoldOn.match(
+    /(Mon|Tue|Wed|Thu|Fri|Sat|Sun),?\s+([A-Za-z]+)\s+(\d{1,2})/i
+  );
+  let soldDateISO = "";
+  if (dateMatch) {
+    const monthMap = {
+      Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+      Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11
+    };
+    const now = new Date();
+    const m = monthMap[dateMatch[2].substring(0, 3)];
+    const d = parseInt(dateMatch[3]);
+    const y = now.getFullYear(); // eBay rarely shows year, assume current
+    const iso = new Date(y, m, d);
+    soldDateISO = iso.toISOString().split("T")[0];
+  }
 
   return {
     title: document.title.trim(),
@@ -134,10 +155,13 @@ const data = await page.evaluate(() => {
       getMeta("og:description") ||
       document.querySelector("p")?.innerText?.slice(0, 160) ||
       "",
-    soldOn,
-    price
+    soldOnRaw: rawSoldOn,
+    soldOnISO: soldDateISO,
+    priceRaw: rawPrice,
+    priceValue
   };
 });
+
 
 
 
@@ -149,6 +173,7 @@ const data = await page.evaluate(() => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 
 
