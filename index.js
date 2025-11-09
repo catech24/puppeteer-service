@@ -79,3 +79,53 @@ app.post("/scrape", async (req, res) => {
 
 app.get("/", (req, res) => res.send("✅ Puppeteer Service Running"));
 app.listen(3000, () => console.log("Server running on port 3000"));
+
+// === NEW eBay endpoint ===
+app.post("/ebay", async (req, res) => {
+  const { url, secret } = req.body;
+  if (secret !== process.env.PUPPETEER_SECRET) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  try {
+    const browser = await puppeteer.launch({
+      headless: true,
+      executablePath: "./node_modules/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome",
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--no-zygote",
+        "--single-process"
+      ]
+    });
+
+    const page = await browser.newPage();
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0 Safari/537.36"
+    );
+    await page.goto(url, { waitUntil: "networkidle0", timeout: 60000 });
+
+    const data = await page.evaluate(() => {
+      const title = document.querySelector("#itemTitle")?.innerText?.replace("Details about", "").trim()
+        || document.querySelector("h1")?.innerText?.trim() || "";
+
+      const soldOn = document.querySelector("span.DATE")?.innerText?.trim()
+        || document.querySelector("[data-testid='x-date']")?.innerText?.trim()
+        || document.body.innerText.match(/Sold\s+on\s+([A-Za-z]{3,}\s+\d{1,2},?\s+\d{4})/)?.[1] || "";
+
+      const price = document.querySelector(".x-price-approx__price")?.innerText?.trim()
+        || document.querySelector(".notranslate")?.innerText?.trim()
+        || document.querySelector(".display-price")?.innerText?.trim() || "";
+
+      return { title, soldOn, price };
+    });
+
+    await browser.close();
+    res.json(data);
+  } catch (err) {
+    console.error("eBay scrape error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
