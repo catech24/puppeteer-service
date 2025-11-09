@@ -106,20 +106,41 @@ app.post("/ebay", async (req, res) => {
     );
     await page.goto(url, { waitUntil: "networkidle0", timeout: 60000 });
 
-    const data = await page.evaluate(() => {
-      const title = document.querySelector("#itemTitle")?.innerText?.replace("Details about", "").trim()
-        || document.querySelector("h1")?.innerText?.trim() || "";
+const data = await page.evaluate(() => {
+  // Helper to safely query meta tags
+  const getMeta = (name) =>
+    document.querySelector(`meta[name='${name}']`)?.content ||
+    document.querySelector(`meta[property='${name}']`)?.content ||
+    document.querySelector(`meta[name='twitter:${name}']`)?.content ||
+    "";
 
-      const soldOn = document.querySelector("span.DATE")?.innerText?.trim()
-        || document.querySelector("[data-testid='x-date']")?.innerText?.trim()
-        || document.body.innerText.match(/Sold\s+on\s+([A-Za-z]{3,}\s+\d{1,2},?\s+\d{4})/)?.[1] || "";
+  // Extract sold date text (it can appear in multiple patterns)
+  const soldOn =
+    document.querySelector('.vi-tm-left')?.innerText || // Old layout
+    document.querySelector('.x-sold-date span')?.innerText || // New layout
+    document.querySelector('.x-item-date')?.innerText ||
+    document.querySelector('div:has(> span:contains("Sold"))')?.innerText || "";
 
-      const price = document.querySelector(".x-price-approx__price")?.innerText?.trim()
-        || document.querySelector(".notranslate")?.innerText?.trim()
-        || document.querySelector(".display-price")?.innerText?.trim() || "";
+  // Extract price (sold or original)
+  const price =
+    document.querySelector('.x-price-approx__price')?.innerText ||
+    document.querySelector('.x-price .ux-textspans')?.innerText ||
+    document.querySelector('.x-sold-price')?.innerText ||
+    document.querySelector('#prcIsum')?.innerText ||
+    document.querySelector('.notranslate')?.innerText || "";
 
-      return { title, soldOn, price };
-    });
+  return {
+    title: document.title.trim(),
+    description:
+      getMeta("description") ||
+      getMeta("og:description") ||
+      document.querySelector("p")?.innerText?.slice(0, 160) ||
+      "",
+    soldOn: soldOn.trim(),
+    price: price.trim()
+  };
+});
+
 
     await browser.close();
     res.json(data);
@@ -128,4 +149,5 @@ app.post("/ebay", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
