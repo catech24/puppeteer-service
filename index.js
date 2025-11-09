@@ -113,25 +113,19 @@ const data = await page.evaluate(() => {
     document.querySelector(`meta[name='twitter:${name}']`)?.content ||
     "";
 
-  // Find "Sold on" text manually (no :contains)
-  let soldOn = "";
-  const allSpans = Array.from(document.querySelectorAll("span, div"));
-  for (const el of allSpans) {
-    const txt = el.innerText?.trim() || "";
-    if (/sold on/i.test(txt)) {
-      soldOn = txt;
-      break;
-    }
-  }
+  // SOLD DATE – very specific to eBay sold pages
+  const soldOnEl = document.querySelector(
+    ".ux-layout-section__textual-display--statusMessage span.ux-textspans--BOLD"
+  );
+  const soldOn = soldOnEl?.innerText?.trim() || "";
 
-  // Try multiple possible price selectors
-  const price =
-    document.querySelector(".x-price-approx__price")?.innerText ||
-    document.querySelector(".x-price .ux-textspans")?.innerText ||
-    document.querySelector(".x-sold-price")?.innerText ||
-    document.querySelector("#prcIsum")?.innerText ||
-    document.querySelector(".notranslate")?.innerText ||
-    "";
+  // PRICE – condensed card or price element
+  const priceEl =
+    document.querySelector(".x-item-condensed-card__price .ux-textspans--BOLD") ||
+    document.querySelector(".x-price .ux-textspans--BOLD") ||
+    document.querySelector(".x-price-approx__price") ||
+    document.querySelector(".notranslate");
+  const price = priceEl?.innerText?.trim() || "";
 
   return {
     title: document.title.trim(),
@@ -140,10 +134,11 @@ const data = await page.evaluate(() => {
       getMeta("og:description") ||
       document.querySelector("p")?.innerText?.slice(0, 160) ||
       "",
-    soldOn: soldOn.trim(),
-    price: price.trim()
+    soldOn,
+    price
   };
 });
+
 
 
 
@@ -154,6 +149,7 @@ const data = await page.evaluate(() => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 
 
