@@ -78,6 +78,66 @@ app.post("/scrape", async (req, res) => {
 });
 
 app.get("/", (req, res) => res.send("✅ Puppeteer Service Running"));
+// === NEW Generic JS-rendered HTML endpoint ===
+app.post("/render-html", async (req, res) => {
+  const { url, secret, waitForSelector = "body", waitForTimeout = 5000 } = req.body;
+
+  if (secret !== process.env.PUPPETEER_SECRET) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  try {
+    const browser = await puppeteer.launch({
+      headless: true,
+      executablePath:
+        "./node_modules/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome",
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--no-zygote",
+        "--single-process"
+      ]
+    });
+
+    const page = await browser.newPage();
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0 Safari/537.36"
+    );
+
+    await page.goto(url, { waitUntil: "networkidle0", timeout: 60000 });
+
+    if (waitForSelector) {
+      await page.waitForSelector(waitForSelector, { timeout: 15000 });
+    }
+
+    if (waitForTimeout) {
+      await page.waitForTimeout(waitForTimeout);
+    }
+
+    // Return the rendered HTML OR extracted links
+    const html = await page.content();
+
+    // Extract product URLs automatically
+    const productLinks = await page.$$eval("a[href*='/product/']", (as) =>
+      as.map((a) => a.href)
+    );
+
+    await browser.close();
+
+    res.json({
+      ok: true,
+      url,
+      productLinks,
+      htmlLength: html.length,
+      html
+    });
+  } catch (err) {
+    console.error("render-html error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(3000, () => console.log("Server running on port 3000"));
 
 // === NEW eBay endpoint ===
@@ -173,6 +233,7 @@ const data = await page.evaluate(() => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 
 
