@@ -111,9 +111,9 @@ app.post("/render-html", async (req, res) => {
       await page.waitForSelector(waitForSelector, { timeout: 15000 });
     }
 
-    if (waitForTimeout) {
-      await page.waitForTimeout(waitForTimeout);
-    }
+ if (waitForTimeout) {
+  await new Promise(res => setTimeout(res, waitForTimeout));
+}
 
     // Return the rendered HTML OR extracted links
     const html = await page.content();
@@ -233,6 +233,7 @@ const data = await page.evaluate(() => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 
 
